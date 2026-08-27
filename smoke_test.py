@@ -1,29 +1,43 @@
-"""Render every top-level Streamlit page with Streamlit's official AppTest framework."""
-from pathlib import Path
-import subprocess
-import sys
+"""Render the Streamlit script through Streamlit's official AppTest harness."""
 
-ROOT = Path(__file__).resolve().parent
-for filename in ["app.py", "student_model.py", "verify_project.py"]:
-    subprocess.run([sys.executable, "-m", "py_compile", str(ROOT / filename)], check=True)
-subprocess.run([sys.executable, str(ROOT / "verify_project.py")], check=True)
+from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-pages = [
-    "🏠 Home",
-    "🎯 Prediction",
-    "📊 Model Results",
-    "🔗 Correlation",
-    "📈 Dataset",
-    "⭐ Feature Analysis",
-    "ℹ️ About",
-]
 
-at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120).run()
-assert not at.exception, at.exception
-for page in pages[1:]:
-    at.sidebar.radio[0].set_value(page).run(timeout=120)
-    assert not at.exception, f"Streamlit exception on {page}: {at.exception}"
+ROOT = Path(__file__).resolve().parent
 
-print("STREAMLIT APPTEST PASSED: 7 top-level pages rendered")
+
+def main() -> None:
+    app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
+    app.run()
+    assert not app.exception, [str(item.value) for item in app.exception]
+    assert app.title or app.markdown, "The application rendered no visible content."
+    assert len(app.sidebar.radio) == 1, "Navigation radio was not rendered."
+    assert len(app.metric) >= 4, "Overview metrics were not rendered."
+
+    pages = [
+        "Overview",
+        "Individual Prediction",
+        "Batch Prediction",
+        "Model Evaluation",
+        "Feature Analysis",
+        "Dataset Explorer",
+        "Methodology & About",
+    ]
+    for page in pages:
+        app.sidebar.radio[0].set_value(page)
+        app.run(timeout=180)
+        assert not app.exception, f"{page}: {[str(item.value) for item in app.exception]}"
+
+    app.sidebar.radio[0].set_value("Individual Prediction")
+    app.run(timeout=180)
+    app.button[0].click()
+    app.run(timeout=180)
+    assert not app.exception, [str(item.value) for item in app.exception]
+    assert any("Final prediction:" in item.value for item in app.success)
+    print("STREAMLIT APPTEST PASSED: 7 pages and individual form submission")
+
+
+if __name__ == "__main__":
+    main()

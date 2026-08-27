@@ -1,216 +1,484 @@
-"""Student Performance Prediction System — polished final four-feature edition."""
+"""Student Performance Prediction System — four-feature A++ edition."""
+
 from __future__ import annotations
 
+from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import get_column_letter
-from sklearn.feature_selection import mutual_info_regression
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from student_model import (
     CLASS_COLORS,
     CLASS_ORDER,
     FEATURES,
     FEATURE_LABELS,
+    feature_relevance,
     load_dataset,
     predict_batch,
     predict_model_details,
-    student_recommendation,
+    student_recommendations,
     train_model_suite,
     validate_batch,
 )
 
-st.set_page_config(page_title="Student Performance Prediction", page_icon="🎓", layout="wide", initial_sidebar_state="expanded")
 
-st.markdown("""
+ROOT = Path(__file__).resolve().parent
+
+st.set_page_config(
+    page_title="Student Performance Prediction",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
 <style>
-:root{--navy:#0b1220;--blue:#2563eb;--violet:#7c3aed;--text:#172033;--muted:#64748b;--line:#dbe4f0}
-.stApp{background:radial-gradient(circle at 18% 12%,rgba(96,165,250,.20),transparent 34%),radial-gradient(circle at 84% 84%,rgba(192,132,252,.16),transparent 32%),linear-gradient(180deg,#d6e4f7 0%,#e6edf8 48%,#eee9f8 100%);color:var(--text)}
-.block-container{max-width:1100px;padding-top:.65rem;padding-bottom:2.2rem}
-[data-testid="stSidebar"]{width:245px!important;min-width:245px!important;background:radial-gradient(circle at 14% 8%,rgba(99,102,241,.23),transparent 28%),linear-gradient(180deg,#08111f 0%,#111827 52%,#172554 100%);border-right:1px solid rgba(255,255,255,.08);box-shadow:10px 0 38px rgba(2,6,23,.15)}
-[data-testid="stSidebar"]>div:first-child{width:245px!important;padding:1.15rem .95rem 1.6rem}[data-testid="stSidebar"] *{color:white}
-[data-testid="stSidebar"] div[role="radiogroup"]{gap:.48rem}[data-testid="stSidebar"] div[role="radiogroup"] label{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:.68rem .78rem;min-height:44px;transition:.18s ease}[data-testid="stSidebar"] div[role="radiogroup"] label:hover{background:rgba(255,255,255,.10);transform:translateX(3px)}[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked){background:linear-gradient(90deg,#2563eb,#7c3aed);box-shadow:0 12px 28px rgba(79,70,229,.26)}
-.sidebar-brand{font-size:1.55rem;font-weight:900;letter-spacing:-.03em}.sidebar-sub{font-size:.72rem;color:#afc6ff;margin:.15rem 0 1.1rem}.sidebar-foot{margin-top:1.35rem;padding-top:.95rem;border-top:1px solid rgba(255,255,255,.12);color:#b8c7e8;font-size:.70rem;line-height:1.65}.sidebar-pill{display:inline-block;margin-top:.5rem;padding:.23rem .5rem;border-radius:999px;background:rgba(37,99,235,.18);border:1px solid rgba(147,197,253,.22);color:#dbeafe;font-weight:800}
-.hero{padding:1.42rem 1.55rem;border-radius:27px;color:white;background:radial-gradient(circle at 92% 10%,rgba(124,58,237,.34),transparent 30%),linear-gradient(135deg,#0b1220 0%,#172554 58%,#4c1d95 100%);box-shadow:0 22px 52px rgba(15,23,42,.23);margin-bottom:1rem;border:1px solid rgba(255,255,255,.09)}
-.hero .eyebrow{font-size:.72rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#bfdbfe}.hero h1{margin:.28rem 0 .45rem;color:white;font-size:2rem;letter-spacing:-.04em}.hero p{margin:0;color:#dbeafe;font-size:.93rem;line-height:1.55;max-width:880px}
-[data-testid="stMetric"],[data-testid="stForm"],.card,.feature-card,.mode-card,.why-card{background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(246,249,255,.82));border:1px solid rgba(148,163,184,.26);border-radius:20px;box-shadow:0 15px 38px rgba(37,99,235,.08),inset 0 1px 0 rgba(255,255,255,.92);backdrop-filter:blur(14px)}
-[data-testid="stMetric"]{padding:.76rem .86rem}[data-testid="stMetricLabel"] p{color:var(--muted)!important;font-weight:750!important;font-size:.80rem!important}[data-testid="stMetricValue"]>div{font-size:1.42rem!important;font-weight:900!important;color:var(--text)!important}[data-testid="stForm"]{padding:1rem 1.05rem 1.1rem}
-.feature-card{padding:1rem;min-height:176px;transition:.2s ease}.feature-card:hover,.mode-card:hover{transform:translateY(-4px);box-shadow:0 22px 46px rgba(79,70,229,.13)}.feature-number{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;background:linear-gradient(135deg,#2563eb,#7c3aed);margin-bottom:.72rem}.feature-title{font-size:1.02rem;font-weight:900;color:#172033;margin-bottom:.35rem}.feature-desc{font-size:.81rem;color:#64748b;line-height:1.52}.feature-tag{display:inline-block;margin-top:.62rem;padding:.22rem .47rem;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:.69rem;font-weight:850}
-.hub{background:linear-gradient(145deg,rgba(248,251,255,.86),rgba(244,245,255,.80));border:1px solid rgba(148,163,184,.24);border-radius:28px;padding:1.15rem;box-shadow:0 18px 48px rgba(37,99,235,.08)}.hub-welcome{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 58%,#5b21b6 100%);border-radius:24px;padding:1.1rem 1.3rem;color:white;margin-bottom:1rem;box-shadow:0 20px 50px rgba(37,99,235,.20)}.hub-welcome b{font-size:1.35rem}.hub-welcome p{margin:.35rem 0 0;color:#e2e8f0;font-size:.84rem}.mode-card{padding:.9rem .95rem .78rem;min-height:178px;margin-bottom:.55rem}.mode-icon{width:50px;height:50px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:linear-gradient(135deg,#dbeafe,#ede9fe);margin-bottom:.7rem}.mode-title{font-size:1.13rem;font-weight:900;color:#172033;margin-bottom:.34rem}.mode-desc{font-size:.81rem;line-height:1.45;color:#64748b;min-height:48px}.chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.58rem}.chip{padding:.24rem .45rem;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:.68rem;font-weight:800}.why-card{padding:1rem;margin-top:.9rem}.why-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.55rem}.why-item{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #dbeafe;border-radius:13px;padding:.68rem .55rem;text-align:center;font-size:.75rem;font-weight:800;color:#334155}
-.mode-hero{background:linear-gradient(120deg,#dcecff,#e8edff 55%,#efe7ff);border:1px solid #dbeafe;border-radius:20px;padding:.88rem 1rem;margin-bottom:.8rem;box-shadow:0 10px 26px rgba(37,99,235,.08)}.mode-hero small{font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#4338ca}.mode-hero h2{margin:.22rem 0 .30rem!important;font-size:1.26rem!important;color:#172033!important}.mode-hero p{margin:0;color:#475569;font-size:.81rem;line-height:1.48}
-.stButton>button,[data-testid="stFormSubmitButton"]>button{width:100%;border:none;border-radius:14px;font-weight:850;color:white;min-height:45px;background:linear-gradient(90deg,#2563eb,#4f46e5 52%,#7c3aed);box-shadow:0 11px 25px rgba(79,70,229,.20)}.stDownloadButton>button{width:100%;border-radius:14px;font-weight:850;color:white;min-height:45px;background:linear-gradient(135deg,#10b981,#059669);border:1px solid rgba(255,255,255,.18)}
-.result-card{border-radius:22px;padding:1.05rem 1.2rem;background:linear-gradient(135deg,#0f172a,#1e3a8a 62%,#4c1d95);color:white;box-shadow:0 18px 42px rgba(30,58,138,.20);margin:.7rem 0}.result-card .label{font-size:.75rem;color:#bfdbfe;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.result-card .big{font-size:2rem;font-weight:950;letter-spacing:-.035em;margin:.15rem 0}.result-card .small{font-size:.82rem;color:#dbeafe}.cgpa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.55rem;margin:.65rem 0 .85rem}.cgpa-box{background:rgba(255,255,255,.93);border:1px solid #e2e8f0;border-radius:14px;padding:.65rem .70rem}.cgpa-box b{display:block;font-size:.82rem;color:#172033}.cgpa-box span{font-size:.72rem;color:#64748b}.info-box{background:linear-gradient(135deg,#eff6ff,#eef2ff);border:1px solid #dbeafe;border-radius:15px;padding:.70rem .82rem;color:#334155;font-size:.80rem;line-height:1.48;margin:.55rem 0 .8rem}
-[data-testid="stDataFrame"],[data-testid="stPlotlyChart"]{background:rgba(255,255,255,.94);border:1px solid rgba(148,163,184,.22);border-radius:17px;overflow:hidden;box-shadow:0 13px 32px rgba(37,99,235,.07)}
-@media(max-width:900px){.why-grid{grid-template-columns:repeat(2,1fr)}.cgpa-grid{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:1.55rem}}
+:root {--navy:#0f172a;--blue:#2563eb;--violet:#7c3aed;--line:#dbe4f0;}
+.stApp {background:linear-gradient(180deg,#f8fbff 0%,#f8fafc 48%,#f5f3ff 100%);}
+.block-container {max-width:1220px;padding-top:1.25rem;padding-bottom:2.5rem;}
+[data-testid="stSidebar"] {background:linear-gradient(180deg,#07111f 0%,#111827 55%,#172554 100%);}
+[data-testid="stSidebar"] * {color:#f8fafc;}
+.hero {padding:1.45rem 1.6rem;border-radius:24px;background:linear-gradient(135deg,#0f172a,#1e3a8a 58%,#6d28d9);color:white;box-shadow:0 18px 48px rgba(30,58,138,.18);margin-bottom:1rem;}
+.hero h1 {margin:0;color:white;font-size:2.05rem;line-height:1.2;}
+.hero p {margin:.55rem 0 0;color:#dbeafe;font-size:1rem;}
+.section-card {background:rgba(255,255,255,.94);border:1px solid #dbe4f0;border-radius:18px;padding:1rem 1.1rem;box-shadow:0 10px 28px rgba(15,23,42,.05);margin:.5rem 0 1rem;}
+.feature-card {min-height:92px;border:1px solid #dbeafe;border-radius:16px;padding:.8rem;background:linear-gradient(145deg,#ffffff,#eef2ff);display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;color:#312e81;box-shadow:0 6px 18px rgba(49,46,129,.06);}
+.method-step {border-left:4px solid #4f46e5;background:#f8fafc;border-radius:0 14px 14px 0;padding:.75rem .9rem;margin:.55rem 0;}
+.pill {display:inline-block;padding:.28rem .6rem;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:.78rem;font-weight:750;margin:.12rem;}
+[data-testid="stMetric"] {background:white;border:1px solid #dbe4f0;border-radius:16px;padding:.72rem .85rem;box-shadow:0 7px 20px rgba(15,23,42,.04);}
+.stButton>button,.stDownloadButton>button,[data-testid="stFormSubmitButton"]>button {border-radius:12px!important;font-weight:800!important;}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
+
+def hero(title: str, subtitle: str) -> None:
+    st.markdown(
+        f'<div class="hero"><h1>{title}</h1><p>{subtitle}</p></div>',
+        unsafe_allow_html=True,
+    )
+
 
 @st.cache_data(show_spinner=False)
-def get_dataset():
-    return load_dataset()
+def cached_dataset() -> tuple[pd.DataFrame, str, str]:
+    result = load_dataset(ROOT)
+    return result.frame, result.source, result.note
 
-@st.cache_resource(show_spinner="Training KNN, SVM and ANN...")
-def get_suite():
-    data, _ = load_dataset()
-    return train_model_suite(data)
+
+@st.cache_resource(show_spinner="Training KNN, SVM and ANN models...")
+def cached_training(dataset_hash: str, csv_payload: bytes):
+    del dataset_hash  # It remains part of the cache key.
+    frame = pd.read_csv(BytesIO(csv_payload))
+    return train_model_suite(frame)
+
 
 @st.cache_data(show_spinner=False)
-def feature_evidence(data: pd.DataFrame) -> pd.DataFrame:
-    X = data[FEATURES].apply(pd.to_numeric)
-    y = pd.to_numeric(data["Final_CGPA"])
-    mi = mutual_info_regression(X, y, random_state=42)
-    rows=[]
-    for i,f in enumerate(FEATURES):
-        rows.append({"Feature":FEATURE_LABELS[f],"Mutual Information":mi[i],"Pearson Correlation":X[f].corr(y,method="pearson"),"Spearman Correlation":X[f].corr(y,method="spearman")})
-    return pd.DataFrame(rows).sort_values("Pearson Correlation",ascending=False).reset_index(drop=True)
+def cached_relevance(csv_payload: bytes) -> pd.DataFrame:
+    return feature_relevance(pd.read_csv(BytesIO(csv_payload)))
 
-def hero(title, subtitle, eyebrow="RIS Group 5 • BMCS2003 Artificial Intelligence"):
-    st.markdown(f'<div class="hero"><div class="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{subtitle}</p></div>',unsafe_allow_html=True)
 
-def mode_hero(title, subtitle, eyebrow):
-    st.markdown(f'<div class="mode-hero"><small>{eyebrow}</small><h2>{title}</h2><p>{subtitle}</p></div>',unsafe_allow_html=True)
+@st.cache_data(show_spinner=False)
+def make_batch_template() -> bytes:
+    sample = pd.DataFrame(
+        {
+            "Student_ID": ["ID05001", "ID05002", "ID05003", "ID05004", "ID05005"],
+            "Student_Name": ["Aiman Hakim", "Nur Aisyah", "Lim Wei Jian", "Siti Hajar", "Arjun Kumar"],
+            "Number_of_Subjects": [5, 6, 5, 4, 6],
+            "Average_Score": [74.5, 62.0, 84.0, 55.5, 70.0],
+            "Attendance_Pct": [88.0, 76.0, 94.0, 68.0, 85.0],
+            "Study_Hours_Per_Day": [3.5, 2.0, 4.5, 1.5, 3.0],
+            "Previous_CGPA": [3.20, 2.70, 3.65, 2.35, 3.05],
+        }
+    )
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        sample.to_excel(writer, index=False, sheet_name="Batch Input")
+        worksheet = writer.sheets["Batch Input"]
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = worksheet.dimensions
+        for cell in worksheet[1]:
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.fill = PatternFill("solid", fgColor="1E3A8A")
+            cell.alignment = Alignment(horizontal="center")
+        widths = {"A": 16, "B": 24, "C": 20, "D": 17, "E": 20, "F": 23, "G": 17}
+        for column, width in widths.items():
+            worksheet.column_dimensions[column].width = width
+    return output.getvalue()
 
-def cgpa_guide():
-    st.markdown('''<div class="cgpa-grid"><div class="cgpa-box"><b>🌟 Excellent</b><span>Final CGPA 3.50 – 4.00</span></div><div class="cgpa-box"><b>✅ Good</b><span>Final CGPA 3.00 – 3.49</span></div><div class="cgpa-box"><b>📘 Average</b><span>Final CGPA 2.50 – 2.99</span></div><div class="cgpa-box"><b>⚠️ At Risk</b><span>Final CGPA below 2.50</span></div></div>''',unsafe_allow_html=True)
 
-def four_feature_note():
-    st.markdown('<div class="info-box"><b>Exactly 4 ML inputs:</b> Average Score, Attendance Percentage, Study Hours per Day and Previous CGPA. The same four values are used by KNN, SVM and ANN.</div>',unsafe_allow_html=True)
+def make_result_workbook(result: pd.DataFrame) -> bytes:
+    output = BytesIO()
+    summary = (
+        result["Final_Prediction"]
+        .value_counts()
+        .reindex(CLASS_ORDER, fill_value=0)
+        .rename_axis("Category")
+        .reset_index(name="Students")
+    )
+    summary["Percentage"] = summary["Students"] / max(len(result), 1)
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        result.to_excel(writer, index=False, sheet_name="Prediction Results")
+        summary.to_excel(writer, index=False, sheet_name="Summary")
+        for worksheet in writer.sheets.values():
+            worksheet.freeze_panes = "A2"
+            worksheet.auto_filter.ref = worksheet.dimensions
+            for cell in worksheet[1]:
+                cell.font = Font(color="FFFFFF", bold=True)
+                cell.fill = PatternFill("solid", fgColor="1E3A8A")
+                cell.alignment = Alignment(horizontal="center")
+            for cells in worksheet.columns:
+                width = min(max(max(len(str(cell.value or "")) for cell in cells) + 2, 12), 30)
+                worksheet.column_dimensions[cells[0].column_letter].width = width
+        for cell in writer.sheets["Summary"]["C"][1:]:
+            cell.number_format = "0.0%"
+    return output.getvalue()
 
-def feature_cards():
-    descriptions={"Average_Score":"Current assessment performance and a strong academic signal.","Attendance_Pct":"Participation and consistency in scheduled learning activities.","Study_Hours_Per_Day":"Daily academic effort, preparation and independent study.","Previous_CGPA":"Historical academic achievement and strongest selected predictor."}
-    tags={"Average_Score":"Academic performance","Attendance_Pct":"Engagement","Study_Hours_Per_Day":"Learning effort","Previous_CGPA":"Academic history"}
-    cols=st.columns(4)
-    for i,f in enumerate(FEATURES,1):
-        cols[i-1].markdown(f'<div class="feature-card"><div class="feature-number">{i}</div><div class="feature-title">{FEATURE_LABELS[f]}</div><div class="feature-desc">{descriptions[f]}</div><div class="feature-tag">{tags[f]}</div></div>',unsafe_allow_html=True)
 
-def autosize(ws):
-    for cells in ws.columns:
-        ws.column_dimensions[get_column_letter(cells[0].column)].width=min(max(max(len(str(c.value or "")) for c in cells)+3,12),36)
+try:
+    dataset, data_source, data_note = cached_dataset()
+except Exception as exc:
+    st.error("The application could not initialize its dataset safely.")
+    st.exception(exc)
+    st.stop()
 
-def excel_bytes(dataframe,title):
-    wb=Workbook(); ws=wb.active; ws.title="Prediction Results"
-    dark=PatternFill("solid",fgColor="172554"); purple=PatternFill("solid",fgColor="6D28D9"); alt=PatternFill("solid",fgColor="F8FAFC"); thin=Side(style="thin",color="D9E2F1")
-    ws.merge_cells(start_row=1,start_column=1,end_row=1,end_column=max(1,len(dataframe.columns)))
-    c=ws.cell(1,1,title); c.fill=dark; c.font=Font(color="FFFFFF",bold=True,size=16); c.alignment=Alignment(horizontal="center")
-    for j,col in enumerate(dataframe.columns,1):
-        c=ws.cell(3,j,col); c.fill=purple if col=="Final_Prediction" else dark; c.font=Font(color="FFFFFF",bold=True); c.alignment=Alignment(horizontal="center",wrap_text=True)
-    for i,row in enumerate(dataframe.itertuples(index=False),4):
-        for j,value in enumerate(row,1):
-            c=ws.cell(i,j,value); c.fill=alt if i%2==0 else PatternFill("solid",fgColor="FFFFFF"); c.border=Border(left=thin,right=thin,top=thin,bottom=thin); c.alignment=Alignment(horizontal="center")
-            if "Confidence" in str(dataframe.columns[j-1]) and isinstance(value,(float,int)): c.number_format="0.0%"
-    ws.freeze_panes="A4"; ws.auto_filter.ref=ws.dimensions; ws.sheet_view.showGridLines=False; autosize(ws)
-    out=BytesIO(); wb.save(out); return out.getvalue()
+payload = dataset.to_csv(index=False).encode("utf-8")
+signature = sha256(payload).hexdigest()
+try:
+    training = cached_training(signature, payload)
+except Exception as exc:
+    st.error("Model initialization failed. Please check the deployment logs and dependency installation.")
+    st.exception(exc)
+    st.stop()
 
-def batch_template():
-    sample=pd.DataFrame([{"Student_ID":"S001","Student_Name":"Ali Tan","Average_Score":82.0,"Attendance_Pct":91.0,"Study_Hours_Per_Day":4.5,"Previous_CGPA":3.45},{"Student_ID":"S002","Student_Name":"Mei Ling","Average_Score":67.0,"Attendance_Pct":78.0,"Study_Hours_Per_Day":2.5,"Previous_CGPA":2.85}])
-    return excel_bytes(sample,"Batch Prediction Template — Exactly 4 ML Features")
+models = training.models
+evaluation = training.evaluation
+matrices = training.confusion_matrices
+best_model = training.best_model
 
-def confusion_fig(matrix,classes,name):
-    fig=go.Figure(data=go.Heatmap(z=matrix,x=classes,y=classes,colorscale="Blues",text=matrix,texttemplate="%{text}")); fig.update_layout(title=dict(text=f"{name} Confusion Matrix",x=.5,xanchor="center"),xaxis_title="Predicted Class",yaxis_title="Actual Class",height=420); return fig
 
-df,data_source=get_dataset(); suite=get_suite(); evaluation=suite.evaluation.copy(); best_model=suite.best_model; best_accuracy=float(evaluation.iloc[0]["Accuracy"]); evidence=feature_evidence(df)
+st.sidebar.markdown("# 🎓 Student AI")
+st.sidebar.caption("Performance Prediction System")
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "Overview",
+        "Individual Prediction",
+        "Batch Prediction",
+        "Model Evaluation",
+        "Feature Analysis",
+        "Dataset Explorer",
+        "Methodology & About",
+    ],
+)
+st.sidebar.markdown("---")
+st.sidebar.caption(f"Data: {data_source}")
+st.sidebar.caption(f"Valid students: {len(dataset):,}")
+st.sidebar.caption(f"Selected model: {best_model}")
+st.sidebar.caption("Four-Feature A++ · v7.0")
 
-st.sidebar.markdown('<div class="sidebar-brand">🎓 Student AI</div><div class="sidebar-sub">Student Performance Prediction</div>',unsafe_allow_html=True)
-st.sidebar.markdown("### Navigation")
-choice=st.sidebar.radio("Navigation Menu",["🏠 Home","🎯 Prediction","📊 Model Results","🔗 Correlation","📈 Dataset","⭐ Feature Analysis","ℹ️ About"],label_visibility="collapsed")
-page=choice.split(" ",1)[1]
-st.sidebar.markdown(f'<div class="sidebar-foot"><b>Final Model Inputs</b><br>1. Average Score<br>2. Attendance Percentage<br>3. Study Hours per Day<br>4. Previous CGPA<br><span class="sidebar-pill">Exactly 4 ML Features</span><br><br><b>Best Model:</b> {best_model}<br><b>Accuracy:</b> {best_accuracy:.1%}<br><br>Developed by RIS Group 5<br>© 2026 All Rights Reserved</div>',unsafe_allow_html=True)
-if page!="Prediction": st.session_state.pop("prediction_mode",None)
+if data_source != "Repository CSV":
+    st.warning(
+        "Student_data.csv was missing or invalid. The app remains operational using a deterministic "
+        "fallback dataset; place a valid Student_data.csv beside app.py to restore project data."
+    )
+if training.errors:
+    st.warning("One or more optional models could not train: " + "; ".join(training.errors))
 
-if page=="Home":
-    hero("Student Performance Prediction System","AI-powered academic performance analysis using KNN, SVM and ANN with exactly four selected model inputs.")
-    c1,c2,c3,c4=st.columns(4); c1.metric("Students",f"{len(df):,}"); c2.metric("ML Features","4"); c3.metric("Best Model",best_model); c4.metric("Best Accuracy",f"{best_accuracy:.1%}")
-    st.markdown("### Four Final Prediction Features"); feature_cards()
-    long=evaluation.melt(id_vars="Model",value_vars=["Accuracy","Precision","Recall","F1 Score"],var_name="Metric",value_name="Score"); fig=px.bar(long,x="Model",y="Score",color="Metric",barmode="group",text_auto=".1%",range_y=[0,1],title="Model Performance Overview"); fig.update_yaxes(tickformat=".0%"); fig.update_layout(title=dict(x=.5,xanchor="center"),height=420); st.plotly_chart(fig,use_container_width=True)
-    cgpa_guide(); four_feature_note()
 
-elif page=="Prediction" and not st.session_state.get("prediction_mode"):
-    hero("Prediction Hub","Choose how you want to analyse student performance using the final four-feature KNN, SVM and ANN system.","AI-Powered Academic Intelligence")
-    st.markdown('<div class="hub">',unsafe_allow_html=True); st.markdown('<div class="hub-welcome"><b>Choose Your Prediction Mode</b><p>Analyse one student in detail or process many students through the same validated four-feature pipeline.</p></div>',unsafe_allow_html=True)
-    a,b,c,d=st.columns(4); a.metric("🏆 Best Model",best_model); b.metric("🎯 Best Accuracy",f"{best_accuracy:.1%}"); c.metric("📚 Input Features","4"); d.metric("🤖 ML Models","3")
-    l,r=st.columns(2)
-    with l:
-        st.markdown('<div class="mode-card"><div class="mode-icon">👤</div><div class="mode-title">Individual Prediction</div><div class="mode-desc">Enter one student’s four academic inputs and compare KNN, SVM and ANN predictions in real time.</div><div class="chips"><div class="chip">✓ 4 inputs only</div><div class="chip">✓ 3-model comparison</div><div class="chip">✓ Excel report</div></div></div>',unsafe_allow_html=True)
-        if st.button("🚀 Start Individual Prediction",key="start_individual",type="primary"): st.session_state["prediction_mode"]="individual"; st.rerun()
-    with r:
-        st.markdown('<div class="mode-card"><div class="mode-icon">📂</div><div class="mode-title">Batch Prediction</div><div class="mode-desc">Upload Excel or CSV records containing the same four required ML inputs for multiple students.</div><div class="chips"><div class="chip">✓ Excel / CSV</div><div class="chip">✓ 4 required inputs</div><div class="chip">✓ At-risk detection</div></div></div>',unsafe_allow_html=True)
-        if st.button("📂 Start Batch Prediction",key="start_batch",type="primary"): st.session_state["prediction_mode"]="batch"; st.rerun()
-    st.markdown('<div class="why-card"><b>Why Use This System?</b><div class="why-grid"><div class="why-item">AI-Powered Prediction</div><div class="why-item">Exactly 4 Inputs</div><div class="why-item">Batch Processing</div><div class="why-item">Professional Excel Reports</div><div class="why-item">Early At-Risk Identification</div></div></div></div>',unsafe_allow_html=True)
+if page == "Overview":
+    hero(
+        "Student Performance Prediction System",
+        "Professional academic screening with KNN, SVM and ANN — rebuilt from the four-feature final concept.",
+    )
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Student Records", f"{len(dataset):,}")
+    metric_columns[1].metric("Selected Features", str(len(FEATURES)))
+    metric_columns[2].metric("Models Trained", str(len(models)))
+    metric_columns[3].metric("Best Hold-out Model", best_model)
 
-elif page=="Prediction" and st.session_state.get("prediction_mode")=="individual":
-    mode_hero("👤 Individual Prediction","Only the four numbered academic fields below are passed into the machine-learning models.","Single-Student Analysis • 4 ML Inputs")
-    if st.button("← Back to Prediction Hub",key="back_individual"): st.session_state.pop("prediction_mode",None); st.session_state.pop("individual_result",None); st.rerun()
-    cgpa_guide()
-    with st.form("individual_form"):
-        i1,i2=st.columns(2); student_id=i1.text_input("Student ID (optional)",placeholder="e.g. S001"); student_name=i2.text_input("Student Name (optional)",placeholder="e.g. Alex Tan")
-        st.markdown("### Four Prediction Features"); l,r=st.columns(2); average=l.number_input("1. Average Score (%)",0.0,100.0,75.0,1.0); attendance=r.number_input("2. Attendance Percentage (%)",0.0,100.0,85.0,.5); study=l.number_input("3. Study Hours per Day",0.0,24.0,3.0,.5); previous=r.number_input("4. Previous CGPA",0.0,4.0,3.0,.01,format="%.2f"); submitted=st.form_submit_button("🚀 Predict Student Performance",type="primary",use_container_width=True)
+    st.markdown("### Four Selected Features")
+    feature_columns = st.columns(len(FEATURES))
+    for column, feature in zip(feature_columns, FEATURES):
+        column.markdown(
+            f'<div class="feature-card">{FEATURE_LABELS[feature]}</div>', unsafe_allow_html=True
+        )
+
+    left, right = st.columns([1.45, 1])
+    with left:
+        st.markdown("### Performance Distribution")
+        distribution = (
+            dataset["Performance_Category"]
+            .value_counts()
+            .reindex(CLASS_ORDER, fill_value=0)
+            .rename_axis("Category")
+            .reset_index(name="Students")
+        )
+        figure = px.bar(
+            distribution,
+            x="Category",
+            y="Students",
+            color="Category",
+            color_discrete_map=CLASS_COLORS,
+            text="Students",
+            category_orders={"Category": CLASS_ORDER},
+        )
+        figure.update_layout(showlegend=False, height=400, margin=dict(l=15, r=15, t=20, b=15))
+        st.plotly_chart(figure, width="stretch")
+    with right:
+        st.markdown("### How to Use the System")
+        st.markdown(
+            """
+<div class="method-step"><b>1 · Individual</b><br>Enter one student's four evidence-backed academic indicators.</div>
+<div class="method-step"><b>2 · Batch</b><br>Upload up to 10,000 students using the downloadable template.</div>
+<div class="method-step"><b>3 · Evaluate</b><br>Compare the same held-out test metrics for KNN, SVM and ANN.</div>
+<div class="method-step"><b>4 · Act</b><br>Use predictions as an early-support signal, not as a final academic decision.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        st.info("Number of Subjects remains useful profile information but is excluded from prediction because its correlation is approximately zero.")
+
+elif page == "Individual Prediction":
+    hero("Individual Prediction", "Enter one student profile and compare all three model decisions.")
+    with st.form("individual_prediction"):
+        first, second = st.columns(2)
+        number_of_subjects = first.number_input("Number of Subjects (profile only)", 1, 12, 5, 1)
+        average_score = second.number_input("Average Score", 0.0, 100.0, 70.0, 0.5)
+        attendance = first.number_input("Attendance Rate (%)", 0.0, 100.0, 85.0, 0.5)
+        study = second.number_input("Study Hours per Day", 0.0, 24.0, 3.0, 0.5)
+        previous = first.number_input("Previous CGPA", 0.0, 4.0, 3.00, 0.01)
+        submitted = st.form_submit_button("Predict Student Performance", width="stretch")
+
     if submitted:
-        X=pd.DataFrame([{"Average_Score":average,"Attendance_Pct":attendance,"Study_Hours_Per_Day":study,"Previous_CGPA":previous}])[FEATURES]; comp=predict_model_details(X,suite); best=comp[comp["Model"]==best_model].iloc[0]; st.session_state["individual_result"]={"comp":comp,"pred":str(best["Prediction"]),"conf":float(best["Confidence"]),"id":student_id,"name":student_name,"inputs":X.iloc[0].to_dict()}
-    saved=st.session_state.get("individual_result")
-    if saved:
-        emoji={"Excellent":"🌟","Good":"✅","Average":"📘","At Risk":"⚠️"}.get(saved["pred"],"🎓"); st.markdown(f'<div class="result-card"><div class="label">Final Prediction • {best_model}</div><div class="big">{emoji} {saved["pred"]}</div><div class="small">Model confidence: {saved["conf"]:.1%}</div></div>',unsafe_allow_html=True); st.info(student_recommendation(saved["pred"])); show=saved["comp"].copy(); show["Confidence"]=show["Confidence"].map(lambda x:f"{x:.1%}"); st.dataframe(show,hide_index=True,use_container_width=True)
-        report=pd.DataFrame([{"Student_ID":saved["id"] or "N/A","Student_Name":saved["name"] or "N/A",**saved["inputs"],"Final_Prediction":saved["pred"],"Final_Confidence":saved["conf"],"Best_Model":best_model}]); st.download_button("⬇️ Download Prediction Report",excel_bytes(report,"Individual Prediction Report — 4 ML Features"),"individual_prediction.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
+        input_row = pd.DataFrame(
+            [
+                {
+                    "Number_of_Subjects": number_of_subjects,
+                    "Average_Score": average_score,
+                    "Previous_CGPA": previous,
+                    "Attendance_Pct": attendance,
+                    "Study_Hours_Per_Day": study,
+                }
+            ]
+        )
+        final_prediction, confidence, details = predict_model_details(models, input_row, best_model)
+        st.success(f"Final prediction: {final_prediction}")
+        metrics = st.columns(3)
+        metrics[0].metric("Performance Category", final_prediction)
+        metrics[1].metric("Model Confidence", f"{confidence:.1%}")
+        metrics[2].metric("Selected Model", best_model)
 
-elif page=="Prediction" and st.session_state.get("prediction_mode")=="batch":
-    mode_hero("📂 Batch Prediction","Student ID and Student Name are optional. Exactly four academic input columns are required.","Multi-Student Analysis • 4 Required ML Inputs")
-    if st.button("← Back to Prediction Hub",key="back_batch"): st.session_state.pop("prediction_mode",None); st.session_state.pop("batch_result",None); st.rerun()
-    d1,d2=st.columns([1,2]); d1.download_button("⬇️ Download Excel Template",batch_template(),"student_batch_prediction_template.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True); d2.markdown('<div class="info-box"><b>Exactly 4 required ML columns:</b> Average_Score, Attendance_Pct, Study_Hours_Per_Day and Previous_CGPA.<br>Student_ID and Student_Name are optional.</div>',unsafe_allow_html=True)
-    up=st.file_uploader("Upload completed Excel or CSV file",type=["xlsx","xls","csv"])
-    if up is not None:
-        try: batch_df=pd.read_csv(up) if up.name.lower().endswith(".csv") else pd.read_excel(up)
-        except Exception as exc: st.error(f"Unable to read file: {exc}")
+        display = details.copy()
+        display["Confidence"] = display["Confidence"].map(lambda value: f"{value:.1%}")
+        st.markdown("### Transparent Model Comparison")
+        st.dataframe(display, hide_index=True, width="stretch")
+        agreement = details["Prediction"].nunique() == 1
+        if agreement:
+            st.info("All trained models agree on this prediction.")
         else:
-            errors=validate_batch(batch_df)
-            if errors:
-                st.error("Please correct the following validation problem(s):"); [st.write(f"• {e}") for e in errors]
+            st.info(f"Models disagree; the final result follows {best_model}, selected by Macro F1 then accuracy.")
+
+        st.markdown("### Recommended Support Actions")
+        for recommendation in student_recommendations(input_row.iloc[0], final_prediction):
+            st.write("• " + recommendation)
+
+elif page == "Batch Prediction":
+    hero("Batch Prediction", "Validate and predict up to 10,000 students from CSV or Excel.")
+    st.download_button(
+        "⬇️ Download Validated Batch Template",
+        make_batch_template(),
+        "student_batch_prediction_template.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        width="stretch",
+    )
+    uploaded = st.file_uploader("Upload completed CSV or Excel file", type=["csv", "xlsx"])
+    if uploaded is not None:
+        try:
+            raw_batch = (
+                pd.read_csv(uploaded)
+                if uploaded.name.lower().endswith(".csv")
+                else pd.read_excel(uploaded)
+            )
+            cleaned_batch, validation_errors = validate_batch(raw_batch)
+            if validation_errors:
+                st.error("The uploaded file did not pass validation.")
+                for error in validation_errors:
+                    st.write("• " + error)
             else:
-                x1,x2,x3=st.columns(3); x1.metric("Uploaded Students",f"{len(batch_df):,}"); x2.metric("Required Features","4"); x3.metric("Final Model",best_model); preview=[c for c in ["Student_ID","Student_Name",*FEATURES] if c in batch_df.columns]; st.dataframe(batch_df[preview].head(50),hide_index=True,use_container_width=True)
-                if st.button("🚀 Run Batch Prediction",key="run_batch",type="primary"): st.session_state["batch_result"]=predict_batch(batch_df,suite)
-    result=st.session_state.get("batch_result")
-    if isinstance(result,pd.DataFrame):
-        counts=result["Final_Prediction"].value_counts(); c1,c2,c3,c4,c5=st.columns(5); c1.metric("Total",len(result)); c2.metric("Excellent",int(counts.get("Excellent",0))); c3.metric("Good",int(counts.get("Good",0))); c4.metric("Average",int(counts.get("Average",0))); c5.metric("At Risk",int(counts.get("At Risk",0)))
-        cols=[c for c in ["Student_ID","Student_Name",*FEATURES,"Final_Prediction","Final_Confidence"] if c in result.columns]; show=result[cols].copy(); show["Final_Confidence"]=show["Final_Confidence"].map(lambda x:f"{x:.1%}"); st.dataframe(show,hide_index=True,use_container_width=True,height=420)
-        export=[c for c in ["Student_ID","Student_Name",*FEATURES,"KNN_Prediction","SVM_Prediction","ANN_Prediction","Final_Prediction","Final_Confidence"] if c in result.columns]; st.download_button("⬇️ Download Complete Batch Report",excel_bytes(result[export],"Batch Prediction Report — 4 ML Features"),"batch_prediction_results.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
+                st.success(f"{len(cleaned_batch):,} student records passed validation.")
+                result = predict_batch(models, cleaned_batch, best_model)
+                summary = (
+                    result["Final_Prediction"]
+                    .value_counts()
+                    .reindex(CLASS_ORDER, fill_value=0)
+                    .rename_axis("Category")
+                    .reset_index(name="Students")
+                )
+                summary_figure = px.bar(
+                    summary,
+                    x="Category",
+                    y="Students",
+                    color="Category",
+                    color_discrete_map=CLASS_COLORS,
+                    text="Students",
+                    category_orders={"Category": CLASS_ORDER},
+                )
+                summary_figure.update_layout(showlegend=False, height=360, margin=dict(l=10, r=10, t=20, b=10))
+                st.plotly_chart(summary_figure, width="stretch")
+                st.markdown("### Prediction Results")
+                st.caption(f"Showing {min(len(result), 500):,} of {len(result):,} predicted records.")
+                st.dataframe(result.head(500), hide_index=True, width="stretch", height=520)
+                st.download_button(
+                    "⬇️ Download Complete Prediction Report",
+                    make_result_workbook(result),
+                    "student_prediction_results.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    width="stretch",
+                )
+        except Exception as exc:
+            st.error("The uploaded file could not be processed safely.")
+            st.exception(exc)
 
-elif page=="Model Results":
-    hero("Model Results","Compare KNN, SVM and ANN using the same four input features and the same 80/20 stratified hold-out split.","Machine Learning Evaluation")
-    a,b,c,d=st.columns(4); a.metric("Best Model",best_model); b.metric("Best Accuracy",f"{best_accuracy:.1%}"); c.metric("Training Records",f"{suite.train_size:,}"); d.metric("Testing Records",f"{suite.test_size:,}")
-    table=evaluation.copy(); [table.__setitem__(col,table[col].map(lambda x:f"{x:.2%}")) for col in ["Accuracy","Precision","Recall","F1 Score"]]; st.dataframe(table,hide_index=True,use_container_width=True)
-    long=evaluation.melt(id_vars="Model",value_vars=["Accuracy","Precision","Recall","F1 Score"],var_name="Metric",value_name="Score"); fig=px.bar(long,x="Metric",y="Score",color="Model",barmode="group",text_auto=".1%",range_y=[0,1],title="KNN vs SVM vs ANN"); fig.update_yaxes(tickformat=".0%"); fig.update_layout(title=dict(x=.5,xanchor="center")); st.plotly_chart(fig,use_container_width=True)
-    tabs=st.tabs(list(evaluation["Model"]));
-    for tab,name in zip(tabs,list(evaluation["Model"])):
-        with tab: st.plotly_chart(confusion_fig(suite.confusion_matrices[name],suite.classes,name),use_container_width=True)
-    four_feature_note()
+elif page == "Model Evaluation":
+    hero("Model Evaluation", "A fair comparison using one reproducible 80/20 stratified hold-out split.")
+    display = evaluation.copy()
+    metric_names = ["Accuracy", "Precision", "Recall", "Weighted F1", "Macro F1"]
+    for metric in metric_names:
+        display[metric] = display[metric].map(lambda value: f"{value:.2%}")
+    st.dataframe(display, hide_index=True, width="stretch")
+    st.caption("The selected model is ranked by Macro F1, then Accuracy and Weighted F1.")
 
-elif page=="Correlation":
-    hero("Feature Correlation Analysis","Examine only the relationships between the final four ML inputs and Final CGPA.","Evidence-Based Feature Selection • Exactly 4 Features")
-    a,b,c=st.columns(3); a.metric("Students",f"{len(df):,}"); b.metric("Selected Features","4"); c.metric("Target","Final CGPA")
-    corr=df[FEATURES+["Final_CGPA"]].corr().round(3); labels={**FEATURE_LABELS,"Final_CGPA":"Final CGPA"}; display=corr.rename(index=labels,columns=labels); fig=px.imshow(display,text_auto=".2f",color_continuous_scale="RdBu_r",zmin=-1,zmax=1,aspect="auto",title="Four-Feature Correlation Matrix"); fig.update_layout(title=dict(x=.5,xanchor="center"),height=520); st.plotly_chart(fig,use_container_width=True)
-    table=evidence[["Feature","Pearson Correlation","Spearman Correlation"]].copy().round(4); st.dataframe(table,hide_index=True,use_container_width=True); rank=table.sort_values("Pearson Correlation"); fig=px.bar(rank,x="Pearson Correlation",y="Feature",orientation="h",text=rank["Pearson Correlation"].map(lambda v:f"{v:+.3f}"),range_x=[0,1],title="Correlation Strength of the Four Selected Features"); fig.update_traces(textposition="outside"); fig.update_layout(title=dict(x=.5,xanchor="center")); st.plotly_chart(fig,use_container_width=True); four_feature_note()
+    melted = evaluation.melt(
+        id_vars="Model", value_vars=metric_names, var_name="Metric", value_name="Score"
+    )
+    comparison = px.bar(
+        melted,
+        x="Model",
+        y="Score",
+        color="Metric",
+        barmode="group",
+        range_y=[0, 1],
+        title="Hold-out Performance Comparison",
+    )
+    comparison.update_layout(height=450)
+    st.plotly_chart(comparison, width="stretch")
 
-elif page=="Dataset":
-    hero("Dataset Explorer","Explore the 5,000 student records. The default table highlights the four ML inputs plus identifier and target information.","University Student Performance Dataset")
-    a,b,c,d=st.columns(4); a.metric("Student Records",f"{len(df):,}"); b.metric("ML Inputs","4"); c.metric("Missing in ML Inputs",int(df[FEATURES].isna().sum().sum())); d.metric("Target Classes","4")
-    default=[c for c in ["Student_ID",*FEATURES,"Final_CGPA","Performance_Category"] if c in df.columns]; full=st.toggle("Show all source dataset columns",value=False); view=df.copy() if full else df[default].copy()
-    if full: st.info("Additional source columns are shown only for dataset exploration. The prediction models still use exactly four ML inputs.")
-    search=st.text_input("Search Student ID",placeholder="e.g. ID00001");
-    if search and "Student_ID" in view.columns: view=view[view["Student_ID"].astype(str).str.contains(search,case=False,na=False)]
-    cats=st.multiselect("Performance Category",CLASS_ORDER,default=CLASS_ORDER)
-    if "Performance_Category" in view.columns and cats: view=view[view["Performance_Category"].astype(str).isin(cats)]
-    st.dataframe(view,hide_index=True,use_container_width=True,height=500)
-    counts=df["Performance_Category"].astype(str).value_counts().reindex(CLASS_ORDER,fill_value=0).reset_index(); counts.columns=["Performance Category","Students"]; fig=px.pie(counts,names="Performance Category",values="Students",color="Performance Category",color_discrete_map=CLASS_COLORS,hole=.42,title="Performance Category Distribution"); fig.update_layout(title=dict(x=.5,xanchor="center")); st.plotly_chart(fig,use_container_width=True)
+    st.markdown("### Confusion Matrices")
+    tabs = st.tabs(list(models))
+    for tab, model_name in zip(tabs, models):
+        with tab:
+            matrix = matrices[model_name]
+            matrix_figure = go.Figure(
+                data=go.Heatmap(
+                    z=matrix,
+                    x=CLASS_ORDER,
+                    y=CLASS_ORDER,
+                    colorscale="Blues",
+                    text=matrix,
+                    texttemplate="%{text}",
+                    hovertemplate="Actual=%{y}<br>Predicted=%{x}<br>Students=%{z}<extra></extra>",
+                )
+            )
+            matrix_figure.update_layout(
+                title=f"{model_name} Confusion Matrix",
+                xaxis_title="Predicted Category",
+                yaxis_title="Actual Category",
+                height=500,
+            )
+            st.plotly_chart(matrix_figure, width="stretch")
 
-elif page=="Feature Analysis":
-    hero("Feature Analysis","Evidence-based analysis of the exact four features used by KNN, SVM and ANN. The table below is intentionally limited to four rows.","Final Feature Set • 4 Features Only")
-    a,b,c,d=st.columns(4); a.metric("Final Features","4"); b.metric("Strongest Correlation",evidence.iloc[0]["Feature"]); c.metric("Best Pearson r",f"{evidence.iloc[0]['Pearson Correlation']:.3f}"); d.metric("Models Using Set","3")
-    st.markdown("### Final Four Features"); feature_cards(); st.markdown("### Feature Selection Evidence"); show=evidence.copy().round(4); st.dataframe(show,hide_index=True,use_container_width=True)
-    chart=show.sort_values("Pearson Correlation"); fig=px.bar(chart,x="Pearson Correlation",y="Feature",orientation="h",text=chart["Pearson Correlation"].map(lambda v:f"{v:.3f}"),range_x=[0,1],title="Strength of Relationship with Final CGPA"); fig.update_traces(textposition="outside"); fig.update_layout(title=dict(x=.5,xanchor="center")); st.plotly_chart(fig,use_container_width=True); four_feature_note()
+elif page == "Feature Analysis":
+    hero("Feature Analysis", "Correlation and ablation evidence for the final four-feature model design.")
+    relevance = cached_relevance(payload)
+    st.dataframe(relevance.drop(columns="Feature Key"), hide_index=True, width="stretch")
+    relevance_figure = px.bar(
+        relevance,
+        x="Mutual Information",
+        y="Feature",
+        orientation="h",
+        title="Feature Relevance Ranking",
+        color="Spearman Correlation",
+        color_continuous_scale="Blues",
+    )
+    relevance_figure.update_layout(yaxis={"categoryorder": "total ascending"}, height=440)
+    st.plotly_chart(relevance_figure, width="stretch")
+    st.markdown(
+        """
+<div class="section-card">
+<b>Selection rationale</b><br>
+Previous CGPA and Average Score provide the strongest academic signal. Attendance and Study Hours add
+engagement and learning-effort information and improve five-fold cross-validation. Number of Subjects is kept
+as profile information but excluded from the model because its correlation is approximately zero. Sleep Hours,
+Social Hours and Age are also excluded because their relationships are negligible. Gender and Major are excluded
+to avoid unnecessary demographic influence.
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
-elif page=="About":
-    hero("About the Project","A complete student-performance classification prototype developed for BMCS2003 Artificial Intelligence using Streamlit and Scikit-learn.","Project Documentation")
-    a,b,c=st.columns(3); a.markdown('<div class="card" style="padding:1rem"><b>🎯 Objective</b><p>Predict performance category and support early academic intervention through individual and batch workflows.</p></div>',unsafe_allow_html=True); b.markdown('<div class="card" style="padding:1rem"><b>🧠 Models</b><p>KNN<br>SVM<br>ANN<br>80/20 stratified hold-out evaluation</p></div>',unsafe_allow_html=True); c.markdown('<div class="card" style="padding:1rem"><b>📚 Exactly 4 ML Inputs</b><p>Average Score<br>Attendance Percentage<br>Study Hours per Day<br>Previous CGPA</p></div>',unsafe_allow_html=True)
-    st.markdown("### Target Classes"); cgpa_guide(); st.markdown("### Responsible Use"); st.warning("This is an academic decision-support prototype. Predictions should not be the sole basis for high-impact education decisions. Human review remains necessary."); four_feature_note()
+elif page == "Dataset Explorer":
+    hero("Dataset Explorer", "Inspect the exact validated records used by the deployed application.")
+    st.caption(f"Source: {data_source} · {data_note}")
+    selected_categories = st.multiselect(
+        "Filter performance categories", CLASS_ORDER, default=CLASS_ORDER
+    )
+    filtered = dataset[dataset["Performance_Category"].isin(selected_categories)]
+    st.metric("Visible Records", f"{len(filtered):,}")
+    st.dataframe(filtered, hide_index=True, width="stretch", height=580)
+    st.download_button(
+        "⬇️ Download Filtered Dataset",
+        filtered.to_csv(index=False).encode("utf-8"),
+        "filtered_student_dataset.csv",
+        "text/csv",
+    )
+
+else:
+    hero("Methodology & About", "A reproducible machine-learning workflow for responsible early academic support.")
+    st.markdown(
+        """
+### Project Purpose
+The system classifies students into **Excellent, Good, Average, or At Risk** to support early intervention.
+It is a decision-support tool and must not be used as the sole basis for grades, disciplinary action, or access to education.
+
+### Reproducible Workflow
+1. Validate the 5,000-record dataset and numeric ranges.
+2. Convert Final CGPA into four documented performance categories.
+3. Use an 80/20 stratified split with random state 42.
+4. Standardise all four evidence-backed predictors inside each model pipeline.
+5. Train KNN, calibrated SVM, and ANN on the same training data.
+6. Select the final model by Macro F1, then accuracy and Weighted F1.
+7. Present all model predictions, confidence and input-driven support recommendations.
+
+### Performance Categories
+<span class="pill">Excellent: CGPA ≥ 3.50</span>
+<span class="pill">Good: 3.00–3.49</span>
+<span class="pill">Average: 2.50–2.99</span>
+<span class="pill">At Risk: below 2.50</span>
+
+### Deployment Protection
+The application reads `Student_data.csv` from the repository root. If that file is missing or invalid, a
+deterministic built-in fallback keeps the interface operational. Models are trained automatically and cached;
+no `models/`, `src/`, `results/`, or `dataset/` folder is required.
+
+### Dataset Source
+Jisan, R. H. (n.d.). *University student performance & habits dataset* [Data set]. Kaggle.  
+https://www.kaggle.com/datasets/robiulhasanjisan/university-student-performance-and-habits-dataset
+
+The project starts from the 5,000-row Kaggle dataset and uses the supplied processed project CSV. `Average_Score`
+and `Number_of_Subjects` are project-engineered extensions and are not described as original Kaggle columns.
+Only `Average_Score` is used by the model; `Number_of_Subjects` is profile/report information only.
+
+### Academic Integrity and Limitations
+Predictions reflect patterns in the supplied dataset, not guaranteed future outcomes. Human review, contextual
+information and regular model monitoring remain necessary. Demographic variables are shown only in the
+Dataset Explorer and are excluded from prediction.
+""",
+        unsafe_allow_html=True,
+    )

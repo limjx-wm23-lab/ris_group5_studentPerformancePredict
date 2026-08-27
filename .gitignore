@@ -1,9 +1,6 @@
 __pycache__/
 *.py[cod]
 .venv/
-venv/
-.env
 .pytest_cache/
 .streamlit/secrets.toml
-*.xlsx
-!student_batch_prediction_template.xlsx
+student_prediction_results.xlsx

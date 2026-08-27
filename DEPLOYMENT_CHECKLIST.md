@@ -1,44 +1,43 @@
-# Final Deployment Checklist — 4-Feature Edition
+# Deployment Checklist
 
-## Streamlit Cloud Settings
+## Streamlit Community Cloud settings
 
 - Repository: `limjx-wm23-lab/ris_group5_studentPerformancePredict`
 - Branch: `main`
 - Main file path: `app.py`
-- Python: 3.12
+- Python runtime: 3.12 (`runtime.txt`)
 
-## Final ML Input Definition
+## Required root files
 
-1. `Average_Score`
-2. `Attendance_Pct`
-3. `Study_Hours_Per_Day`
-4. `Previous_CGPA`
+- `app.py`
+- `student_model.py`
+- `Student_data.csv`
+- `requirements.txt`
+- `runtime.txt`
+- `.streamlit/config.toml`
 
-## UI Checks
-
-- [x] Home shows `ML Features = 4`.
-- [x] Prediction Hub shows `Input Features = 4`.
-- [x] Individual Prediction contains four numbered ML inputs.
-- [x] Batch Prediction shows `Required Features = 4`.
-- [x] Batch template requires exactly the same four ML input columns.
-- [x] Correlation page analyses only the four selected ML inputs.
-- [x] Feature Analysis table contains exactly four feature rows.
-- [x] About page lists exactly four ML inputs.
-
-## Automated Verification
+## Pre-deployment verification
 
 ```bash
 python -m pip install -r requirements.txt
 python verify_project.py
+python feature_audit.py
 python smoke_test.py
+streamlit run app.py
 ```
 
-Expected result:
+The health endpoint should return `ok`:
 
-```text
-ALL CHECKS PASSED
+```bash
+curl http://127.0.0.1:8501/_stcore/health
 ```
 
-## If Old UI Is Still Visible
+Expected final messages:
 
-In Streamlit Community Cloud, use **Manage app → Reboot app** and confirm the deployment is using `main` and `app.py`.
+- `ALL CHECKS PASSED`
+- `FEATURE AUDIT PASSED`
+- `STREAMLIT APPTEST PASSED: 7 pages and individual form submission`
+
+## Important
+
+The app trains and caches all three models automatically. Do not run a separate training command on Streamlit Cloud. No `src/`, `models/`, `results/`, or `dataset/` directory is required.
