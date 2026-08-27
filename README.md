@@ -1,106 +1,96 @@
-# Student Performance Prediction System — A++ Final Edition
+# 🎓 Student Performance Prediction System — Final 4-Feature Edition
 
-A deployment-safe Streamlit machine-learning system for early student-performance screening using **KNN, SVM, and ANN**.
+A Streamlit Artificial Intelligence project that predicts university student performance using **exactly four academically relevant features** and compares **KNN, SVM and ANN**.
 
-## Key strengths
+## Final Machine Learning Features
 
-- Uses 5,000 validated university student records with no missing values.
-- Selects five defensible, numeric and actionable features.
-- Excludes gender, age and major from prediction to reduce unnecessary demographic influence.
-- Compares three models on the same reproducible stratified hold-out set.
-- Selects the final model by Macro F1, followed by accuracy and Weighted F1.
-- Supports transparent individual prediction and up to 10,000 batch records.
-- Generates downloadable Excel templates and complete prediction reports.
-- Includes deterministic fallback data so a missing CSV does not crash deployment.
-- Requires no pre-generated model files or hidden folders.
+| Feature | Purpose | Correlation with Final CGPA |
+|---|---|---:|
+| Previous CGPA | Historical academic achievement | 0.879 |
+| Average Score | Recent assessment performance | 0.834 |
+| Attendance Percentage | Learning participation and consistency | 0.303 |
+| Study Hours per Day | Academic effort and preparation | 0.231 |
 
-## Five selected features
+These are the only four model inputs used throughout the UI, individual prediction, batch prediction and model training.
 
-1. Previous CGPA
-2. Average Score
-3. Attendance Rate (%)
-4. Study Hours per Day
-5. Sleep Hours per Day
+`Number_of_Subjects` is **not** used by the final model because its correlation with Final CGPA in the project dataset is approximately **0.005**. Keeping it as an ML feature would add almost no useful predictive relationship.
 
-Previous CGPA and Average Score are the strongest academic signals. Attendance and Study Hours add engagement and effort information. Sleep Hours is retained as an actionable wellbeing indicator. Number of Subjects, Social Hours, age, gender and major are not used by the prediction models.
+> **Important dataset note:** `Average_Score` is an engineered field in the project CSV. It must not be described as an original Kaggle column.
 
-## Target classes
+## Target Classes
 
-| Category | Final CGPA rule |
+| Category | Final CGPA |
 |---|---:|
-| Excellent | 3.50–4.00 |
-| Good | 3.00–3.49 |
-| Average | 2.50–2.99 |
+| Excellent | 3.50 – 4.00 |
+| Good | 3.00 – 3.49 |
+| Average | 2.50 – 2.99 |
 | At Risk | Below 2.50 |
 
-## Application modules
+## Machine Learning Models
 
-- Overview dashboard
-- Individual Prediction
-- Batch Prediction with validation and Excel download
-- Model Evaluation with five metrics and confusion matrices
-- Feature Analysis
-- Dataset Explorer
-- Methodology, ethics and limitations
+- K-Nearest Neighbours (KNN)
+- Support Vector Machine (SVM)
+- Artificial Neural Network (ANN / MLPClassifier)
 
-## Reproducible methodology
+All models use the same 80/20 stratified train-test split (`random_state=42`) and a `StandardScaler` pipeline for fair comparison. The application automatically selects the best-performing model by hold-out accuracy for the final result while displaying all three model predictions.
 
-1. Validate schema, missing data and numeric ranges.
-2. Map Final CGPA into four documented target classes.
-3. Create an 80/20 stratified split using random state 42.
-4. Standardise predictors inside every model pipeline.
-5. Train KNN, calibrated SVM and ANN on the same training set.
-6. Compare Accuracy, Precision, Recall, Weighted F1 and Macro F1.
-7. Use the highest-ranked hold-out model for the final prediction while showing all model decisions.
+Current reproduced results from the 5,000-record project dataset:
 
-## Reproduced hold-out results
+| Model | Accuracy | Precision | Recall | F1 Score |
+|---|---:|---:|---:|---:|
+| ANN | ~81.2% | ~81.0% | ~81.2% | ~81.1% |
+| SVM | ~79.7% | ~79.6% | ~79.7% | ~79.6% |
+| KNN | ~79.2% | ~79.1% | ~79.2% | ~79.1% |
 
-The verification script retrains every model from the repository dataset. With the pinned dependencies,
-80/20 stratified split and random state 42, the current results are:
+Exact values are reproduced automatically by `verify_project.py` in the deployment environment.
 
-| Model | Accuracy | Weighted F1 | Macro F1 |
-|---|---:|---:|---:|
-| SVM | 78.30% | 78.25% | 76.97% |
-| KNN | 77.60% | 77.56% | 76.15% |
-| ANN | 77.50% | 77.40% | 75.31% |
+## Application Modules
 
-SVM is selected by the documented Macro F1 ranking rule. These are hold-out results, not claims of
-performance on unseen institutions or future cohorts.
+1. **Home** – project KPIs, four final features, model comparison and CGPA guide.
+2. **Individual Prediction** – four-feature form, three-model comparison, confidence and Excel export.
+3. **Batch Prediction** – Excel/CSV upload, strict validation, at-risk identification, dashboard and Excel export.
+4. **Model Evaluation** – Accuracy, Precision, Recall, F1 Score and confusion matrices.
+5. **Feature Analysis** – feature-selection evidence using correlations with Final CGPA.
+6. **Dataset Explorer** – browse all 5,000 student records and descriptive statistics.
+7. **About** – project objective, target classes, methodology and dataset reference.
 
-## Local verification
+## Required Batch Columns
 
-Python 3.12 is recommended.
-
-```bash
-python -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python verify_project.py
-.venv/bin/python smoke_test.py
-.venv/bin/streamlit run app.py
+```text
+Average_Score
+Attendance_Pct
+Study_Hours_Per_Day
+Previous_CGPA
 ```
 
-On Windows, replace `.venv/bin/python` with `.venv\\Scripts\\python.exe`.
+`Student_ID` and `Student_Name` may be included as profile information but are not machine learning inputs.
 
-The automated smoke test renders all seven application pages and submits the individual prediction form.
-The verification script also exercises dataset validation, feature evidence, all three models, individual
-prediction and batch prediction.
+## Local Run
+
+```bash
+python -m pip install -r requirements.txt
+python verify_project.py
+python smoke_test.py
+streamlit run app.py
+```
 
 ## Streamlit Community Cloud
 
 - Repository: `limjx-wm23-lab/ris_group5_studentPerformancePredict`
 - Branch: `main`
 - Main file path: `app.py`
+- Python: 3.12
 
-The app automatically loads `Student_data.csv` from the repository root and trains the models at startup. If the CSV is missing or invalid, the interface remains available through a deterministic fallback dataset.
+Models are trained and cached automatically from `Student_data.csv` when the app starts, so separate `.joblib` files are not required for deployment.
 
-## Dataset source
+## Dataset Source
 
-The project dataset is based on the **University Student Performance & Habits Dataset**, credited to **Robiul Hasan Jisan** on Kaggle:
+Jisan, R. H. (n.d.). *University student performance & habits dataset* [Data set]. Kaggle.
 
-https://www.kaggle.com/datasets/asifxzaman/university-students-performance-and-study-habits2026
+https://www.kaggle.com/datasets/robiulhasanjisan/university-student-performance-and-habits-dataset
 
-The repository CSV contains additional prepared fields used by this application, including `Number_of_Subjects` and `Average_Score`.
+The repository dataset contains 5,000 student records. The project uses selected and prepared fields for model development and demonstration.
 
-## Responsible-use statement
+## Responsible Use
 
-This application is an academic decision-support prototype. Predictions are probabilistic and must not be used as the sole basis for grades, disciplinary decisions, scholarships, admissions, or access to education. Human review and contextual evidence remain essential.
+This application is an educational decision-support prototype. Predictions are probabilistic and should support, not replace, lecturer judgement or formal academic assessment.
