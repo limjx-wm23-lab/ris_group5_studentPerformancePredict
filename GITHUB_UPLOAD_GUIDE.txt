@@ -1,0 +1,29 @@
+STREAMLIT CLOUD FIXED VERSION
+
+The error you saw was caused by:
+    from src.core import (...)
+when the src package was not available in the deployed GitHub repository.
+
+This fixed version removes that dependency. app.py is self-contained.
+
+UPLOAD THESE TO THE ROOT OF YOUR GITHUB REPOSITORY:
+- app.py
+- train_model.py
+- requirements.txt
+- README.md
+- .gitignore
+- .streamlit/
+- dataset/
+- models/
+- results/
+- templates/
+
+You do NOT need the old src/ folder.
+
+After uploading:
+1. Commit all files.
+2. Open Streamlit Community Cloud.
+3. Main file path = app.py
+4. Reboot/redeploy the app.
+
+If the deployment still shows the old error, Streamlit is still running an old GitHub commit. Reboot the app after confirming the new app.py is visible on GitHub.
