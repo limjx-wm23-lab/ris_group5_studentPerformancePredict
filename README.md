@@ -1,60 +1,50 @@
 # 🎓 Student Performance Prediction System — Final 4-Feature Edition
 
-A Streamlit Artificial Intelligence project that predicts university student performance using **exactly four academically relevant features** and compares **KNN, SVM and ANN**.
+A complete Streamlit machine-learning application for academic performance classification using **KNN, SVM and ANN**.
 
-## Final Machine Learning Features
+The final application uses **exactly four ML input features everywhere**: model training, individual prediction, batch prediction, correlation analysis, feature analysis and downloadable templates.
 
-| Feature | Purpose | Correlation with Final CGPA |
-|---|---|---:|
-| Previous CGPA | Historical academic achievement | 0.879 |
-| Average Score | Recent assessment performance | 0.834 |
-| Attendance Percentage | Learning participation and consistency | 0.303 |
-| Study Hours per Day | Academic effort and preparation | 0.231 |
+## Final 4 ML Features
 
-These are the only four model inputs used throughout the UI, individual prediction, batch prediction and model training.
+| # | Feature | Purpose |
+|---|---|---|
+| 1 | Average Score | Current academic assessment performance |
+| 2 | Attendance Percentage | Learning participation and consistency |
+| 3 | Study Hours per Day | Daily study effort |
+| 4 | Previous CGPA | Historical academic achievement |
 
-`Number_of_Subjects` is **not** used by the final model because its correlation with Final CGPA in the project dataset is approximately **0.005**. Keeping it as an ML feature would add almost no useful predictive relationship.
-
-> **Important dataset note:** `Average_Score` is an engineered field in the project CSV. It must not be described as an original Kaggle column.
+No fifth input is required by the prediction pipeline.
 
 ## Target Classes
 
 | Category | Final CGPA |
 |---|---:|
-| Excellent | 3.50 – 4.00 |
-| Good | 3.00 – 3.49 |
-| Average | 2.50 – 2.99 |
+| Excellent | 3.50–4.00 |
+| Good | 3.00–3.49 |
+| Average | 2.50–2.99 |
 | At Risk | Below 2.50 |
-
-## Machine Learning Models
-
-- K-Nearest Neighbours (KNN)
-- Support Vector Machine (SVM)
-- Artificial Neural Network (ANN / MLPClassifier)
-
-All models use the same 80/20 stratified train-test split (`random_state=42`) and a `StandardScaler` pipeline for fair comparison. The application automatically selects the best-performing model by hold-out accuracy for the final result while displaying all three model predictions.
-
-Current reproduced results from the 5,000-record project dataset:
-
-| Model | Accuracy | Precision | Recall | F1 Score |
-|---|---:|---:|---:|---:|
-| ANN | ~81.2% | ~81.0% | ~81.2% | ~81.1% |
-| SVM | ~79.7% | ~79.6% | ~79.7% | ~79.6% |
-| KNN | ~79.2% | ~79.1% | ~79.2% | ~79.1% |
-
-Exact values are reproduced automatically by `verify_project.py` in the deployment environment.
 
 ## Application Modules
 
-1. **Home** – project KPIs, four final features, model comparison and CGPA guide.
-2. **Individual Prediction** – four-feature form, three-model comparison, confidence and Excel export.
-3. **Batch Prediction** – Excel/CSV upload, strict validation, at-risk identification, dashboard and Excel export.
-4. **Model Evaluation** – Accuracy, Precision, Recall, F1 Score and confusion matrices.
-5. **Feature Analysis** – feature-selection evidence using correlations with Final CGPA.
-6. **Dataset Explorer** – browse all 5,000 student records and descriptive statistics.
-7. **About** – project objective, target classes, methodology and dataset reference.
+- **Home** — KPI dashboard, four final feature cards and model overview.
+- **Prediction** — premium Prediction Hub with Individual and Batch modes.
+- **Model Results** — KNN/SVM/ANN metrics and confusion matrices.
+- **Correlation** — correlation matrix and ranking for the exact four model inputs.
+- **Dataset** — explorer for the 5,000 student records.
+- **Feature Analysis** — exactly four feature rows using Mutual Information, Pearson and Spearman analysis.
+- **About** — methodology, target classes and responsible-use statement.
 
-## Required Batch Columns
+## Current Reproduced Results
+
+Using the repository dataset with an 80/20 stratified split and random state 42:
+
+| Model | Accuracy |
+|---|---:|
+| ANN | 81.2% |
+| SVM | 79.7% |
+| KNN | 79.2% |
+
+## Batch Prediction Required Columns
 
 ```text
 Average_Score
@@ -63,9 +53,14 @@ Study_Hours_Per_Day
 Previous_CGPA
 ```
 
-`Student_ID` and `Student_Name` may be included as profile information but are not machine learning inputs.
+Optional identification columns:
 
-## Local Run
+```text
+Student_ID
+Student_Name
+```
+
+## Verification
 
 ```bash
 python -m pip install -r requirements.txt
@@ -74,23 +69,17 @@ python smoke_test.py
 streamlit run app.py
 ```
 
+The verification script checks the exact four-feature definition, dataset validity, all three model paths, Individual Prediction and Batch Prediction. The Streamlit smoke test renders every top-level application page.
+
 ## Streamlit Community Cloud
 
 - Repository: `limjx-wm23-lab/ris_group5_studentPerformancePredict`
 - Branch: `main`
 - Main file path: `app.py`
-- Python: 3.12
+- Python runtime: 3.12
 
-Models are trained and cached automatically from `Student_data.csv` when the app starts, so separate `.joblib` files are not required for deployment.
-
-## Dataset Source
-
-Jisan, R. H. (n.d.). *University student performance & habits dataset* [Data set]. Kaggle.
-
-https://www.kaggle.com/datasets/robiulhasanjisan/university-student-performance-and-habits-dataset
-
-The repository dataset contains 5,000 student records. The project uses selected and prepared fields for model development and demonstration.
+If an older interface is still visible after a GitHub update, use **Manage app → Reboot app** so the deployment reloads the latest `main` branch.
 
 ## Responsible Use
 
-This application is an educational decision-support prototype. Predictions are probabilistic and should support, not replace, lecturer judgement or formal academic assessment.
+This project is an academic decision-support prototype. Predictions are probabilistic and should not be the sole basis for high-impact educational decisions. Human review remains essential.
