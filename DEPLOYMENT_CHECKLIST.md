@@ -1,22 +1,31 @@
-# Deployment Checklist
+# Deployment Checklist — Final 4-Feature Edition
 
-## Streamlit Community Cloud settings
+## Streamlit Cloud
 
 - Repository: `limjx-wm23-lab/ris_group5_studentPerformancePredict`
 - Branch: `main`
 - Main file path: `app.py`
-- Python runtime: 3.12 (`runtime.txt`)
+- Python runtime: 3.12
 
-## Required root files
+## Final feature consistency
 
-- `app.py`
-- `student_model.py`
-- `Student_data.csv`
-- `requirements.txt`
-- `runtime.txt`
-- `.streamlit/config.toml`
+- [x] Average Score
+- [x] Attendance Percentage
+- [x] Study Hours per Day
+- [x] Previous CGPA
+- [x] No fifth ML feature is used anywhere in prediction or model training.
 
-## Pre-deployment verification
+## Quality checks
+
+- [x] 5,000-row repository dataset validated.
+- [x] KNN, SVM and ANN train on the same four inputs.
+- [x] Individual prediction path verified.
+- [x] Batch validation and prediction path verified.
+- [x] Seven Streamlit pages covered by AppTest in GitHub Actions.
+- [x] Excel export/template generated dynamically by the app.
+- [x] Number of Subjects excluded from final ML input due negligible correlation.
+
+## Verification commands
 
 ```bash
 python -m pip install -r requirements.txt
@@ -24,18 +33,3 @@ python verify_project.py
 python smoke_test.py
 streamlit run app.py
 ```
-
-The health endpoint should return `ok`:
-
-```bash
-curl http://127.0.0.1:8501/_stcore/health
-```
-
-Expected final messages:
-
-- `ALL CHECKS PASSED`
-- `STREAMLIT APPTEST PASSED: 7 pages and individual form submission`
-
-## Important
-
-The app trains and caches all three models automatically. Do not run a separate training command on Streamlit Cloud. No `src/`, `models/`, `results/`, or `dataset/` directory is required.
