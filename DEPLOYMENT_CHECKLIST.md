@@ -1,35 +1,44 @@
-# Deployment Checklist — Final 4-Feature Edition
+# Final Deployment Checklist — 4-Feature Edition
 
-## Streamlit Cloud
+## Streamlit Cloud Settings
 
 - Repository: `limjx-wm23-lab/ris_group5_studentPerformancePredict`
 - Branch: `main`
 - Main file path: `app.py`
-- Python runtime: 3.12
+- Python: 3.12
 
-## Final feature consistency
+## Final ML Input Definition
 
-- [x] Average Score
-- [x] Attendance Percentage
-- [x] Study Hours per Day
-- [x] Previous CGPA
-- [x] No fifth ML feature is used anywhere in prediction or model training.
+1. `Average_Score`
+2. `Attendance_Pct`
+3. `Study_Hours_Per_Day`
+4. `Previous_CGPA`
 
-## Quality checks
+## UI Checks
 
-- [x] 5,000-row repository dataset validated.
-- [x] KNN, SVM and ANN train on the same four inputs.
-- [x] Individual prediction path verified.
-- [x] Batch validation and prediction path verified.
-- [x] Seven Streamlit pages covered by AppTest in GitHub Actions.
-- [x] Excel export/template generated dynamically by the app.
-- [x] Number of Subjects excluded from final ML input due negligible correlation.
+- [x] Home shows `ML Features = 4`.
+- [x] Prediction Hub shows `Input Features = 4`.
+- [x] Individual Prediction contains four numbered ML inputs.
+- [x] Batch Prediction shows `Required Features = 4`.
+- [x] Batch template requires exactly the same four ML input columns.
+- [x] Correlation page analyses only the four selected ML inputs.
+- [x] Feature Analysis table contains exactly four feature rows.
+- [x] About page lists exactly four ML inputs.
 
-## Verification commands
+## Automated Verification
 
 ```bash
 python -m pip install -r requirements.txt
 python verify_project.py
 python smoke_test.py
-streamlit run app.py
 ```
+
+Expected result:
+
+```text
+ALL CHECKS PASSED
+```
+
+## If Old UI Is Still Visible
+
+In Streamlit Community Cloud, use **Manage app → Reboot app** and confirm the deployment is using `main` and `app.py`.
