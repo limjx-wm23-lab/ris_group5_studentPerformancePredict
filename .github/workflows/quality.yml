@@ -1,9 +1,10 @@
-name: Quality checks
+name: Student AI Quality Check
 
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,14 +14,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install pinned dependencies
+
+      - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Verify data, models and prediction paths
+
+      - name: Verify data and machine-learning paths
         run: python verify_project.py
-      - name: Render every Streamlit page
+
+      - name: Render all Streamlit pages
         run: python smoke_test.py
