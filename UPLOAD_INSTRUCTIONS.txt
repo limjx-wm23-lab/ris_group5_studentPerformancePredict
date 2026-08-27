@@ -1,0 +1,28 @@
+FINAL UPLOAD INSTRUCTIONS
+=========================
+
+1. DELETE the OLD app.py from GitHub first.
+2. Upload ALL files from this package to the ROOT of your GitHub repository.
+3. Your GitHub main page must show directly:
+
+   app.py
+   Student_data.csv
+   requirements.txt
+   README.md
+   train_model.py
+   UPLOAD_INSTRUCTIONS.txt
+
+4. DO NOT put app.py inside another folder.
+5. In Streamlit Cloud, Main file path = app.py
+6. After committing the new files: Manage app -> Reboot app.
+
+VERY IMPORTANT:
+If the Streamlit error page still contains the text:
+  "The application could not load its data/model artifacts"
+or
+  "Run python train_model.py once"
+then Streamlit is STILL RUNNING YOUR OLD app.py.
+The FINAL app.py in this package does not contain either of those messages.
+
+This final app does not require src/, models/, results/, or dataset/ folders.
+Even if Student_data.csv is accidentally missing, the app starts with a built-in fallback dataset instead of crashing.

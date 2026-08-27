@@ -1,65 +1,41 @@
-# Student Performance Prediction System v2.1 — Streamlit Cloud Safe
+# Student Performance Prediction System — FINAL Deployment-Proof Build
 
-A supervised machine-learning application that predicts student academic performance using KNN, SVM and ANN.
-
-## Important deployment fix
-
-This build is **self-contained**. `app.py` does not import `src.core`, so it will not fail with `ModuleNotFoundError: No module named src` when deployed on Streamlit Community Cloud.
+A Streamlit machine-learning application that predicts student performance using KNN, SVM and ANN.
 
 ## Five selected features
-
 1. Previous CGPA
 2. Average Score
 3. Attendance Rate (%)
 4. Study Hours per Day
 5. Sleep Hours per Day
 
-## Performance categories
-
+## Target classes
+- Excellent: Final CGPA 3.50–4.00
+- Good: Final CGPA 3.00–3.49
+- Average: Final CGPA 2.50–2.99
 - At Risk: Final CGPA below 2.50
-- Average: 2.50–2.99
-- Good: 3.00–3.49
-- Excellent: 3.50–4.00
 
-## GitHub structure
+## GitHub deployment
+Upload these files to the ROOT of the repository:
 
-```text
-.
-├── app.py
-├── train_model.py
-├── requirements.txt
-├── README.md
-├── dataset/
-│   └── Student_data.csv
-├── models/
-│   ├── knn_model.joblib
-│   ├── svm_model.joblib
-│   ├── ann_model.joblib
-│   └── metadata.json
-├── results/
-│   ├── evaluation.csv
-│   ├── feature_selection.csv
-│   └── *_confusion_matrix.png
-├── templates/
-│   └── student_batch_template.xlsx
-└── .streamlit/
-    └── config.toml
-```
+- `app.py`
+- `Student_data.csv`
+- `requirements.txt`
+- `README.md`
+- `train_model.py`
 
-## Run locally
+Streamlit Community Cloud main file path: `app.py`
 
+## Important deployment protection
+The app does not require `src/`, `models/`, `results/`, or `dataset/` folders. It automatically uses `Student_data.csv` when present. If the CSV is missing or invalid, the app still starts using a deterministic built-in fallback dataset, so a missing-data path does not crash the deployment.
+
+## Local run
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The pretrained models are already included. You do **not** need to run `train_model.py` before launching the app. Run it only if you intentionally want to regenerate all models and evaluation results.
-
-## Streamlit Community Cloud
-
-1. Upload **all files and folders** in this project to the root of your GitHub repository.
-2. In Streamlit Community Cloud choose your repository.
-3. Set the main file path to `app.py`.
-4. Deploy or reboot the app.
-
-Do not upload only `app.py`; the `dataset`, `models`, and `results` folders are required.
+Optional model verification:
+```bash
+python train_model.py
+```
